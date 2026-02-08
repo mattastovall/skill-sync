@@ -1,6 +1,6 @@
 {
-  "name": "skill-sync",
-  "version": "1.0.0",
+  "name": "@mattastovall/skill-sync",
+  "version": "1.0.1",
   "description": "Sync skills and subagents between .cursor, .claude, .codex, and other AI tool directories",
   "main": "index.js",
   "bin": {
@@ -9,7 +9,7 @@
   },
   "scripts": {
     "test": "node bin/cli.js list && echo 'Tests passed!'",
-    "postinstall": "echo 'Skill Sync installed! Run \"npx skill-sync help\" to get started.'"
+    "postinstall": "echo 'Skill Sync installed! Run \"npx @mattastovall/skill-sync help\" to get started.'"
   },
   "keywords": [
     "cursor",

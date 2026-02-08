@@ -47,10 +47,8 @@ function showHelp() {
 Skill Sync - Sync skills and subagents between AI tool directories
 
 Usage:
-  skill-sync [command] [options]
-  ssync [command] [options]
-  
-  skill-sync                # Auto-detect and setup all installed tools
+  npx @mattastovall/skill-sync [command] [options]
+  npx @mattastovall/skill-sync          # Auto-detect and setup all installed tools
 
 Commands:
   setup                     Auto-detect and setup all installed AI tools
@@ -68,12 +66,12 @@ Options:
   -v, --verbose             Show detailed output
 
 Examples:
-  skill-sync                          # Auto-setup all installed tools
-  skill-sync setup --dry-run          # Preview what would be setup
-  skill-sync mirror cursor claude     # Mirror Cursor skills to Claude
-  skill-sync sync --dry-run          # Preview sync across all tools
-  skill-sync list                    # Show detected directories
-  skill-sync init windsurf           # Create .windsurf structure
+  npx @mattastovall/skill-sync                          # Auto-setup all installed tools
+  npx @mattastovall/skill-sync setup --dry-run          # Preview what would be setup
+  npx @mattastovall/skill-sync mirror cursor claude     # Mirror Cursor skills to Claude
+  npx @mattastovall/skill-sync sync --dry-run          # Preview sync across all tools
+  npx @mattastovall/skill-sync list                    # Show detected directories
+  npx @mattastovall/skill-sync init windsurf           # Create .windsurf structure
 
 Supported Tools:
   ${Object.keys(AI_TOOLS).join(', ')}
@@ -93,20 +91,46 @@ function detectTools(rootPath = process.cwd()) {
         subagents: []
       };
       
-      // Detect skills
+      // Detect skills (files AND directories)
       const skillsPath = path.join(toolPath, config.skillsDir);
       if (fs.existsSync(skillsPath)) {
-        detected[name].skills = fs.readdirSync(skillsPath)
-          .filter(f => f.endsWith('.md') || f.endsWith('.json'))
-          .map(f => path.join(skillsPath, f));
+        const skillsItems = fs.readdirSync(skillsPath);
+        detected[name].skills = skillsItems
+          .map(item => {
+            const itemPath = path.join(skillsPath, item);
+            const stats = fs.statSync(itemPath);
+            // Include files ending in .md or .json
+            if (stats.isFile() && (item.endsWith('.md') || item.endsWith('.json'))) {
+              return itemPath;
+            }
+            // Include directories (for Cursor-style skills)
+            if (stats.isDirectory()) {
+              return itemPath;
+            }
+            return null;
+          })
+          .filter(item => item !== null);
       }
       
-      // Detect subagents
+      // Detect subagents (files AND directories)
       const subagentsPath = path.join(toolPath, config.subagentsDir);
       if (fs.existsSync(subagentsPath)) {
-        detected[name].subagents = fs.readdirSync(subagentsPath)
-          .filter(f => f.endsWith('.md') || f.endsWith('.json'))
-          .map(f => path.join(subagentsPath, f));
+        const subagentItems = fs.readdirSync(subagentsPath);
+        detected[name].subagents = subagentItems
+          .map(item => {
+            const itemPath = path.join(subagentsPath, item);
+            const stats = fs.statSync(itemPath);
+            // Include files ending in .md or .json
+            if (stats.isFile() && (item.endsWith('.md') || item.endsWith('.json'))) {
+              return itemPath;
+            }
+            // Include directories (for subdirectory-style subagents)
+            if (stats.isDirectory()) {
+              return itemPath;
+            }
+            return null;
+          })
+          .filter(item => item !== null);
       }
     }
   }
@@ -178,6 +202,32 @@ function initTool(toolName) {
   }
   
   console.log(`\nInitialized ${toolName} structure successfully!`);
+}
+
+function copyDirectory(source, target, options = {}) {
+  // Create target directory if it doesn't exist
+  if (!fs.existsSync(target)) {
+    fs.mkdirSync(target, { recursive: true });
+  }
+  
+  // Read source directory
+  const items = fs.readdirSync(source);
+  
+  for (const item of items) {
+    const sourcePath = path.join(source, item);
+    const targetPath = path.join(target, item);
+    const stats = fs.statSync(sourcePath);
+    
+    if (stats.isDirectory()) {
+      // Recursively copy subdirectory
+      copyDirectory(sourcePath, targetPath, options);
+    } else {
+      // Copy file
+      if (!fs.existsSync(targetPath) || options.force) {
+        fs.copyFileSync(sourcePath, targetPath);
+      }
+    }
+  }
 }
 
 function mirror(sourceTool, targetTool, options = {}) {
@@ -262,17 +312,25 @@ function mirror(sourceTool, targetTool, options = {}) {
       continue;
     }
     
-    // Ensure target directory exists
-    const targetDir = path.dirname(file.target);
-    if (!fs.existsSync(targetDir)) {
-      fs.mkdirSync(targetDir, { recursive: true });
+    // Check if source is a file or directory
+    const sourceStats = fs.statSync(file.source);
+    
+    if (sourceStats.isDirectory()) {
+      // Copy directory recursively
+      copyDirectory(file.source, file.target, options);
+      const action = exists ? 'Updated' : 'Created';
+      console.log(`  ${action}: ${file.type}/${file.name}/ (directory)`);
+    } else {
+      // Copy file
+      const targetDir = path.dirname(file.target);
+      if (!fs.existsSync(targetDir)) {
+        fs.mkdirSync(targetDir, { recursive: true });
+      }
+      
+      fs.copyFileSync(file.source, file.target);
+      const action = exists ? 'Updated' : 'Created';
+      console.log(`  ${action}: ${file.type}/${file.name}`);
     }
-    
-    // Copy file
-    fs.copyFileSync(file.source, file.target);
-    
-    const action = exists ? 'Updated' : 'Created';
-    console.log(`  ${action}: ${file.type}/${file.name}`);
   }
   
   console.log(`\nMirror complete!`);

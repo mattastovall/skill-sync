@@ -6,12 +6,12 @@ A CLI tool to mirror and sync skills and subagents between different AI coding a
 
 ### Global Installation
 ```bash
-npm install -g skill-sync
+npm install -g @mattastovall/skill-sync
 ```
 
 ### Using npx (no installation)
 ```bash
-npx skill-sync <command>
+npx @mattastovall/skill-sync <command>
 ```
 
 ## Usage
@@ -23,10 +23,10 @@ Mirror skills and subagents from one tool to another.
 
 ```bash
 # Mirror Cursor skills to Claude
-skill-sync mirror cursor claude
+@mattastovall/skill-sync mirror cursor claude
 
 # Mirror with options
-skill-sync mirror cursor claude --skills-only --force
+@mattastovall/skill-sync mirror cursor claude --skills-only --force
 ```
 
 #### `sync`
@@ -34,17 +34,17 @@ Sync all detected tools bidirectionally.
 
 ```bash
 # Sync all tools
-skill-sync sync
+@mattastovall/skill-sync sync
 
 # Dry run to preview changes
-skill-sync sync --dry-run
+@mattastovall/skill-sync sync --dry-run
 ```
 
 #### `list`
 List all detected AI tool directories and their contents.
 
 ```bash
-skill-sync list
+@mattastovall/skill-sync list
 ```
 
 #### `init <tool>`
@@ -52,10 +52,10 @@ Initialize a new AI tool directory structure.
 
 ```bash
 # Initialize .cursor directory
-skill-sync init cursor
+@mattastovall/skill-sync init cursor
 
 # Initialize .claude directory
-skill-sync init claude
+@mattastovall/skill-sync init claude
 ```
 
 ### Options
@@ -96,30 +96,30 @@ Each AI tool follows this structure:
 
 ```bash
 # First, initialize both directories
-skill-sync init cursor
-skill-sync init claude
+@mattastovall/skill-sync init cursor
+@mattastovall/skill-sync init claude
 
 # Add some skills to Cursor
 # (manually create .cursor/skills/my-skill.md)
 
 # Mirror to Claude
-skill-sync mirror cursor claude
+@mattastovall/skill-sync mirror cursor claude
 ```
 
 ### Example 2: Sync All Tools
 
 ```bash
 # Preview what would be synced
-skill-sync sync --dry-run
+@mattastovall/skill-sync sync --dry-run
 
 # Actually sync all tools
-skill-sync sync
+@mattastovall/skill-sync sync
 ```
 
 ### Example 3: List Current Setup
 
 ```bash
-skill-sync list
+@mattastovall/skill-sync list
 ```
 
 Output:
