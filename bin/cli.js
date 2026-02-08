@@ -48,12 +48,12 @@ Skill Sync - Sync skills and subagents between AI tool directories
 
 Usage:
   npx @mattastovall/skill-sync [command] [options]
-  npx @mattastovall/skill-sync          # Auto-detect and setup all installed tools
+  npx @mattastovall/skill-sync          # Sync all tools (default)
 
 Commands:
+  sync                      Sync all tools with each other (bidirectional) [default]
   setup                     Auto-detect and setup all installed AI tools
   mirror <source> <target>  Mirror skills from source to target tool
-  sync                      Sync all tools with each other (bidirectional)
   list                      List detected AI tool directories
   init <tool>               Initialize a new AI tool directory structure
   help                      Show this help message
@@ -66,10 +66,10 @@ Options:
   -v, --verbose             Show detailed output
 
 Examples:
-  npx @mattastovall/skill-sync                          # Auto-setup all installed tools
-  npx @mattastovall/skill-sync setup --dry-run          # Preview what would be setup
+  npx @mattastovall/skill-sync                          # Sync all tools (default)
+  npx @mattastovall/skill-sync sync --dry-run           # Preview sync across all tools
+  npx @mattastovall/skill-sync setup                    # Auto-setup all installed tools
   npx @mattastovall/skill-sync mirror cursor claude     # Mirror Cursor skills to Claude
-  npx @mattastovall/skill-sync sync --dry-run          # Preview sync across all tools
   npx @mattastovall/skill-sync list                    # Show detected directories
   npx @mattastovall/skill-sync init windsurf           # Create .windsurf structure
 
@@ -493,9 +493,9 @@ switch (command) {
     break;
 
   default:
-    // No command provided - run setup to detect and initialize all tools
+    // No command provided - run sync to sync all tools
     if (!command) {
-      setup(options);
+      syncAll(options);
     } else {
       console.error(`Unknown command: ${command}`);
       console.error('Run "skill-sync help" for usage information.');
