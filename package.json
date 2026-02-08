@@ -1,6 +1,6 @@
 {
   "name": "@mattastovall/skill-sync",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Sync skills and subagents between .cursor, .claude, .codex, and other AI tool directories",
   "main": "index.js",
   "bin": {
