@@ -1,0 +1,29 @@
+{
+  "name": "skill-sync",
+  "version": "1.0.0",
+  "description": "Sync skills and subagents between .cursor, .claude, .codex, and other AI tool directories",
+  "main": "index.js",
+  "bin": {
+    "skill-sync": "./bin/cli.js",
+    "ssync": "./bin/cli.js"
+  },
+  "scripts": {
+    "test": "node bin/cli.js list && echo 'Tests passed!'",
+    "postinstall": "echo 'Skill Sync installed! Run \"npx skill-sync help\" to get started.'"
+  },
+  "keywords": [
+    "cursor",
+    "claude",
+    "codex",
+    "ai",
+    "skills",
+    "subagents",
+    "mirror",
+    "sync"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
