@@ -67,7 +67,7 @@ Options:
 
 Examples:
   npx @mattastovall/skill-sync                          # Sync all tools (default)
-  npx @mattastovall/skill-sync sync --dry-run           # Preview sync across all tools
+  npx @mattastovall/skill-sync --dry-run                # Preview sync
   npx @mattastovall/skill-sync setup                    # Auto-setup all installed tools
   npx @mattastovall/skill-sync mirror cursor claude     # Mirror Cursor skills to Claude
   npx @mattastovall/skill-sync list                    # Show detected directories
@@ -441,7 +441,6 @@ function setup(options = {}) {
 
 // Parse command line arguments
 const args = process.argv.slice(2);
-const command = args[0];
 
 // Parse options
 const options = {
@@ -454,6 +453,9 @@ const options = {
 
 // Remove options from args for command processing
 const cleanArgs = args.filter(arg => !arg.startsWith('--') && !arg.startsWith('-'));
+
+// Get command (first non-option argument)
+const command = cleanArgs[0];
 
 switch (command) {
   case 'mirror':
