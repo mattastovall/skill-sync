@@ -138,24 +138,51 @@ function detectTools(rootPath = process.cwd()) {
   return detected;
 }
 
-function listTools() {
-  const detected = detectTools();
-  
-  console.log('\nDetected AI Tool Directories:\n');
-  
-  if (Object.keys(detected).length === 0) {
-    console.log('  No AI tool directories found in current directory.');
-    console.log('  Run "ai-skills-mirror init <tool>" to create one.\n');
-    return;
-  }
-  
-  for (const [name, info] of Object.entries(detected)) {
-    console.log(`  ${name}:`);
-    console.log(`    Path: ${info.path}`);
-    console.log(`    Skills: ${info.skills.length} files`);
-    console.log(`    Subagents: ${info.subagents.length} files`);
-    console.log();
-  }
+function showHelp() {
+  console.log(`
+Skill Sync - Sync skills and subagents between AI tool directories
+
+Usage:
+  npx @mattastovall/skill-sync [command] [options]
+  npx @mattastovall/skill-sync          # Sync all tools (default)
+
+Commands:
+  sync                      Sync all tools with each other (bidirectional) [default]
+  list                      List detected AI tool directories and their skills
+  global                    Manage global skills (add, list, install)
+  setup                     Auto-detect and setup all installed AI tools
+  mirror <source> <target>  Mirror skills from source to target tool
+  init <tool>               Initialize a new AI tool directory structure
+  help                      Show this help message
+
+Global Commands:
+  skill-sync global list                    # List all global skills
+  skill-sync global add <skill-name>        # Add current directory skill to global
+  skill-sync global add <skill-name> <path> # Add skill from path to global
+  skill-sync global install <skill-name>    # Install global skill to all tools
+  skill-sync global install <skill-name> <tool> # Install to specific tool
+
+Options:
+  --skills-only             Only sync skills (not subagents)
+  --subagents-only          Only sync subagents (not skills)
+  --dry-run                 Show what would be synced without making changes
+  --force                   Overwrite existing files without prompting
+  -v, --verbose             Show detailed output
+
+Examples:
+  npx @mattastovall/skill-sync                          # Sync all tools (default)
+  npx @mattastovall/skill-sync --dry-run                # Preview sync
+  npx @mattastovall/skill-sync list                     # List all tools and skills
+  npx @mattastovall/skill-sync global list               # List global skills
+  npx @mattastovall/skill-sync global add my-skill       # Add skill to global
+  npx @mattastovall/skill-sync global install my-skill  # Install to all tools
+  npx @mattastovall/skill-sync setup                    # Auto-setup all installed tools
+  npx @mattastovall/skill-sync mirror cursor claude     # Mirror Cursor skills to Claude
+  npx @mattastovall/skill-sync init windsurf           # Create .windsurf structure
+
+Supported Tools:
+  ${Object.keys(AI_TOOLS).join(', ')}
+`);
 }
 
 function initTool(toolName) {
@@ -457,7 +484,169 @@ const cleanArgs = args.filter(arg => !arg.startsWith('--') && !arg.startsWith('-
 // Get command (first non-option argument)
 const command = cleanArgs[0];
 
-switch (command) {
+// Global skills directory
+const GLOBAL_SKILLS_DIR = path.join(require('os').homedir(), '.skill-sync', 'global-skills');
+
+function ensureGlobalSkillsDir() {
+  if (!fs.existsSync(GLOBAL_SKILLS_DIR)) {
+    fs.mkdirSync(GLOBAL_SKILLS_DIR, { recursive: true });
+  }
+}
+
+function listGlobalSkills() {
+  ensureGlobalSkillsDir();
+  const items = fs.readdirSync(GLOBAL_SKILLS_DIR);
+  
+  console.log('\n📦 Global Skills:\n');
+  
+  if (items.length === 0) {
+    console.log('  No global skills found.');
+    console.log('\n  Add a global skill with:');
+    console.log('    skill-sync global add <skill-name> [path]');
+    console.log('\n  This will copy the skill from current directory or specified path');
+    console.log('  to the global skills directory for use across all projects.\n');
+    return;
+  }
+  
+  for (const item of items) {
+    const itemPath = path.join(GLOBAL_SKILLS_DIR, item);
+    const stats = fs.statSync(itemPath);
+    if (stats.isDirectory()) {
+      console.log(`  📁 ${item}/`);
+    } else {
+      console.log(`  📄 ${item}`);
+    }
+  }
+  console.log();
+}
+
+function addGlobalSkill(skillName, sourcePath) {
+  ensureGlobalSkillsDir();
+  
+  // If no source path provided, look in current directory's .cursor/skills
+  if (!sourcePath) {
+    const cursorSkillPath = path.join(process.cwd(), '.cursor', 'skills', skillName);
+    const claudeSkillPath = path.join(process.cwd(), '.claude', 'skills', skillName);
+    
+    if (fs.existsSync(cursorSkillPath)) {
+      sourcePath = cursorSkillPath;
+    } else if (fs.existsSync(claudeSkillPath)) {
+      sourcePath = claudeSkillPath;
+    } else {
+      console.error(`❌ Skill "${skillName}" not found in current directory.`);
+      console.error('   Looked in:');
+      console.error(`   - ${cursorSkillPath}`);
+      console.error(`   - ${claudeSkillPath}`);
+      console.error('\n   Provide a path to the skill:');
+      console.error(`   skill-sync global add ${skillName} /path/to/skill`);
+      process.exit(1);
+    }
+  }
+  
+  if (!fs.existsSync(sourcePath)) {
+    console.error(`❌ Source path does not exist: ${sourcePath}`);
+    process.exit(1);
+  }
+  
+  const targetPath = path.join(GLOBAL_SKILLS_DIR, skillName);
+  
+  if (fs.existsSync(targetPath)) {
+    console.log(`⚠️  Global skill "${skillName}" already exists.`);
+    console.log(`   Use --force to overwrite.`);
+    return;
+  }
+  
+  const stats = fs.statSync(sourcePath);
+  if (stats.isDirectory()) {
+    copyDirectory(sourcePath, targetPath, options);
+    console.log(`✅ Added global skill: ${skillName}/ (directory)`);
+  } else {
+    fs.copyFileSync(sourcePath, targetPath);
+    console.log(`✅ Added global skill: ${skillName}`);
+  }
+  console.log(`📍 Location: ${targetPath}\n`);
+}
+
+function installGlobalSkill(skillName, targetTool) {
+  ensureGlobalSkillsDir();
+  
+  const globalSkillPath = path.join(GLOBAL_SKILLS_DIR, skillName);
+  
+  if (!fs.existsSync(globalSkillPath)) {
+    console.error(`❌ Global skill "${skillName}" not found.`);
+    console.log('\n📦 Available global skills:');
+    listGlobalSkills();
+    process.exit(1);
+  }
+  
+  const detected = detectTools();
+  const tools = targetTool ? [targetTool] : Object.keys(detected);
+  
+  if (tools.length === 0) {
+    console.error('❌ No AI tools detected in current directory.');
+    console.log('   Run: skill-sync setup');
+    process.exit(1);
+  }
+  
+  console.log(`\n📦 Installing global skill "${skillName}"...\n`);
+  
+  for (const tool of tools) {
+    if (!detected[tool]) {
+      console.log(`⚠️  Tool "${tool}" not found, skipping...`);
+      continue;
+    }
+    
+    const targetPath = path.join(detected[tool].path, AI_TOOLS[tool].skillsDir, skillName);
+    
+    if (fs.existsSync(targetPath)) {
+      console.log(`  ⚠️  ${tool}: Already exists, skipping`);
+      continue;
+    }
+    
+    const stats = fs.statSync(globalSkillPath);
+    if (stats.isDirectory()) {
+      copyDirectory(globalSkillPath, targetPath, {});
+      console.log(`  ✅ ${tool}: Installed ${skillName}/`);
+    } else {
+      fs.copyFileSync(globalSkillPath, targetPath);
+      console.log(`  ✅ ${tool}: Installed ${skillName}`);
+    }
+  }
+  
+  console.log('\n✅ Installation complete!');
+}
+
+function listTools() {
+  const detected = detectTools();
+  
+  console.log('\nDetected AI Tool Directories:\n');
+  
+  if (Object.keys(detected).length === 0) {
+    console.log('  No AI tool directories found in current directory.');
+    console.log('  Run "ai-skills-mirror init <tool>" to create one.\n');
+    return;
+  }
+  
+  for (const [name, info] of Object.entries(detected)) {
+    console.log(`  ${name}:`);
+    console.log(`    Path: ${info.path}`);
+    console.log(`    Skills: ${info.skills.length} files`);
+    if (info.skills.length > 0) {
+      for (const skill of info.skills) {
+        const skillName = path.basename(skill);
+        console.log(`      - ${skillName}`);
+      }
+    }
+    console.log(`    Subagents: ${info.subagents.length} files`);
+    if (info.subagents.length > 0) {
+      for (const subagent of info.subagents) {
+        const subagentName = path.basename(subagent);
+        console.log(`      - ${subagentName}`);
+      }
+    }
+    console.log();
+  }
+}
   case 'mirror':
     if (cleanArgs.length < 3) {
       console.error('Usage: ai-skills-mirror mirror <source> <target>');
@@ -488,6 +677,46 @@ switch (command) {
     initTool(cleanArgs[1]);
     break;
     
+  case 'global':
+    if (cleanArgs.length < 2) {
+      console.error('Usage: skill-sync global <subcommand>');
+      console.error('\nSubcommands:');
+      console.error('  list                           List all global skills');
+      console.error('  add <skill-name> [path]        Add skill to global');
+      console.error('  install <skill-name> [tool]    Install global skill to tool(s)');
+      process.exit(1);
+    }
+    
+    const subcommand = cleanArgs[1];
+    
+    switch (subcommand) {
+      case 'list':
+        listGlobalSkills();
+        break;
+        
+      case 'add':
+        if (cleanArgs.length < 3) {
+          console.error('Usage: skill-sync global add <skill-name> [path]');
+          process.exit(1);
+        }
+        addGlobalSkill(cleanArgs[2], cleanArgs[3]);
+        break;
+        
+      case 'install':
+        if (cleanArgs.length < 3) {
+          console.error('Usage: skill-sync global install <skill-name> [tool]');
+          process.exit(1);
+        }
+        installGlobalSkill(cleanArgs[2], cleanArgs[3]);
+        break;
+        
+      default:
+        console.error(`Unknown global subcommand: ${subcommand}`);
+        console.error('Run "skill-sync global" for usage information.');
+        process.exit(1);
+    }
+    break;
+
   case 'help':
   case '--help':
   case '-h':
